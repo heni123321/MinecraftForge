@@ -58,7 +58,7 @@ minecraft {
 }
 
 group = 'net.minecraftforge'
-version = getVersionFromJava(file("src/main/java/net/minecraftforge/common/ForgeVersion.java"))
+version = "11.15.0.1630"
 
 extractForgeSources { exclude "**/SideOnly.java", "**/Side.java" }
 

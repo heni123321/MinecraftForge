@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -43,6 +44,7 @@ import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin.MCVersion;
 import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin.Name;
 import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin.SortingIndex;
 import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin.TransformerExclusions;
+import sun.misc.URLClassPath;
 
 import org.apache.logging.log4j.Level;
 
@@ -410,6 +412,8 @@ public class CoreModManager {
     }
 
     private static Method ADDURL;
+    private static Field UCP;
+    private static final boolean JIGSAW = !(Launch.class.getClassLoader() instanceof URLClassLoader);
 
     private static void handleCascadingTweak(File coreMod, JarFile jar, String cascadedTweaker, LaunchClassLoader classLoader, Integer sortingOrder)
     {
@@ -418,10 +422,20 @@ public class CoreModManager {
             // Have to manually stuff the tweaker into the parent classloader
             if (ADDURL == null)
             {
-                ADDURL = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
-                ADDURL.setAccessible(true);
+            	if (JIGSAW) {
+					ADDURL = URLClassPath.class.getDeclaredMethod("addURL", URL.class);
+					UCP = Class.forName("jdk.internal.misc.BuiltinClassLoader").getDeclaredField("ucp");
+					UCP.setAccessible(true);
+				} else {
+					ADDURL = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
+	                ADDURL.setAccessible(true);
+				}
             }
-            ADDURL.invoke(classLoader.getClass().getClassLoader(), coreMod.toURI().toURL());
+            if (JIGSAW) {
+                ADDURL.invoke(UCP.get(classLoader.getClass().getClassLoader()), coreMod.toURI().toURL());
+			} else {
+	            ADDURL.invoke(classLoader.getClass().getClassLoader(), coreMod.toURI().toURL());
+			}
             classLoader.addURL(coreMod.toURI().toURL());
             CoreModManager.tweaker.injectCascadingTweak(cascadedTweaker);
             tweakSorting.put(cascadedTweaker,sortingOrder);
